@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+.npm
+
+# Build outputs
+dist/
+build/
+tmp/
+out-tsc/
+.cache
+.angular/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Docker
+*.pid
