@@ -1,154 +1,224 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, Injector, computed, inject } from '@angular/core';
+import {
+  patchState,
+  signalStore,
+  withComputed,
+  withMethods,
+  withState,
+} from '@ngrx/signals';
+import { rxMethod } from '@ngrx/signals/rxjs-interop';
+import { catchError, filter, finalize, of, switchMap, tap } from 'rxjs';
+import { SseService } from './sse.service';
 import type {
   ChatMessage,
   GenerativeWidget,
   HistoryItem,
   SseEvent,
+  ToolStatus,
 } from './chat.types';
 
 /**
- * CHAT STORE (patrón Signal Store)
+ * CHAT STORE — NgRx SignalStore (patrón oficial)
  * ============================================================================
- * Fuente única de verdad del estado de la app. Todo reactivamente con Signals
- * de Angular (sin NgRx/Redux): más simple y moderno.
+ * Fuente única de verdad del estado. A diferencia de un servicio "a mano"
+ * con signals, aquí usamos `signalStore` de @ngrx/signals, que da:
  *
- * Estado:
- *   - messages  : los mensajes del chat (el asistente va creciendo con tokens)
- *   - isStreaming : true mientras el backend nos manda eventos
- *   - history   : resultados de tools para las mini-cards del sidebar
+ *   - withState    → estado tipado expuesto como signals (store.messages())
+ *   - withComputed → valores derivados reactivos (store.historyCount())
+ *   - withMethods  → métodos que mutan el estado con `patchState`
+ *   - rxMethod     → métodos REACTIVOS basados en RxJS (el stream SSE)
  *
- * ¿Por qué un store centralizado?
- * Porque el sidebar, el chat y el header necesitan leer el MISMO estado.
- * Con signals, cuando el store cambia, todas las vistas que lo leen se
- * actualizan solas (reactividad automática).
+ * El estado se expone como signals de solo lectura; la ÚNICA forma de mutarlo
+ * es vía `patchState` dentro de `withMethods` (cambios inmutables y trazables).
  */
-@Injectable({ providedIn: 'root' })
-export class ChatStore {
-  // ── Estado privado (solo el store lo muta) ──────────────────────────────
-  private readonly _messages = signal<ChatMessage[]>([]);
-  private readonly _isStreaming = signal(false);
-  private readonly _history = signal<HistoryItem[]>([]);
 
-  // ── Vistas públicas (read-only) ─────────────────────────────────────────
-  readonly messages = this._messages.asReadonly();
-  readonly isStreaming = this._isStreaming.asReadonly();
-  readonly history = this._history.asReadonly();
-
-  // Computed: ¿hay algo para mostrar? lo usa la UI para habilitar/deshabilitar
-  readonly canSend = computed(() => !this._isStreaming());
-
-  // Computed: contador de consultas del historial (para el header/sidebar)
-  readonly historyCount = computed(() => this._history().length);
-
-  /** Marca/desmarca que hay un stream en curso. */
-  setStreaming(v: boolean): void {
-    this._isStreaming.set(v);
-  }
-
-  /** Agrega un mensaje de usuario y devuelve su id. */
-  addUserMessage(content: string): string {
-    const msg: ChatMessage = {
-      id: uid(),
-      role: 'user',
-      content,
-      widgets: [],
-      tools: [],
-    };
-    this._messages.update((ms) => [...ms, msg]);
-    return msg.id;
-  }
-
-  /** Crea un mensaje del asistente vacío (irá llenándose con tokens). */
-  addAssistantMessage(): string {
-    const msg: ChatMessage = {
-      id: uid(),
-      role: 'assistant',
-      content: '',
-      widgets: [],
-      tools: [],
-    };
-    this._messages.update((ms) => [...ms, msg]);
-    return msg.id;
-  }
-
-  /**
-   * Aplica un evento SSE al mensaje del asistente indicado.
-   * Es el corazón de la reactividad del streaming: cada evento muta el signal
-   * de forma inmutable, y Angular repinta solo lo necesario.
-   */
-  applyEvent(messageId: string, ev: SseEvent): void {
-    switch (ev.type) {
-      // Texto incremental → concatenamos al contenido del mensaje
-      case 'token':
-        this.patchMessage(messageId, (m) => ({
-          ...m,
-          content: m.content + (ev.text ?? ''),
-        }));
-        break;
-
-      // El modelo decidió usar una tool → agregamos indicador "running"
-      case 'tool_call':
-        this.patchMessage(messageId, (m) => ({
-          ...m,
-          tools: [...m.tools, { name: ev.name ?? 'tool', state: 'running' }],
-        }));
-        break;
-
-      // Tool terminada (ok o error) → actualizamos su estado
-      case 'tool_result':
-        this.patchMessage(messageId, (m) => ({
-          ...m,
-          tools: m.tools.map((t) =>
-            t.name === ev.name && t.state === 'running'
-              ? { ...t, state: ev.error ? 'error' : 'done', error: ev.error }
-              : t
-          ),
-        }));
-        break;
-
-      // Evento 'ui' → el backend nos dice qué componente generativo renderizar.
-      // Lo agregamos al mensaje Y también al historial (para el sidebar).
-      case 'ui':
-        this.addWidget(messageId, ev.component!, ev.data);
-        this.pushHistory(ev.component!, ev.data);
-        break;
-    }
-  }
-
-  /** Agrega una tarjeta generativa a un mensaje. */
-  private addWidget(messageId: string, component: string, data: any): void {
-    this.patchMessage(messageId, (m) => ({
-      ...m,
-      widgets: [...m.widgets, { component, data }],
-    }));
-  }
-
-  /** Helper inmutable: aplica un transform a un mensaje por id. */
-  private patchMessage(
-    id: string,
-    fn: (m: ChatMessage) => ChatMessage
-  ): void {
-    this._messages.update((ms) =>
-      ms.map((m) => (m.id === id ? fn(m) : m))
-    );
-  }
-
-  /**
-   * Agrega un ítem al historial del sidebar.
-   * Deriva el título/subtítulo del widget para que la mini-card sea legible.
-   */
-  private pushHistory(component: string, data: any): void {
-    const item: HistoryItem = {
-      id: uid(),
-      component,
-      title: historyTitle(component, data),
-      subtitle: historySubtitle(component, data),
-      data,
-    };
-    // Lo ponemos al inicio (lo más reciente arriba) y limitamos a 20
-    this._history.update((h) => [item, ...h].slice(0, 20));
-  }
+/** Forma del estado del chat. */
+export interface ChatState {
+  messages: ChatMessage[];
+  isStreaming: boolean;
+  history: HistoryItem[];
 }
+
+const initialState: ChatState = {
+  messages: [],
+  isStreaming: false,
+  history: [],
+};
+
+@Injectable({ providedIn: 'root' })
+export class ChatStore extends signalStore(
+  // ── 1) Estado ────────────────────────────────────────────────────────────
+  withState<ChatState>(initialState),
+
+  // ── 2) Valores derivados (computed) ──────────────────────────────────────
+  // Recibimos los signals del estado y devolvemos computeds.
+  withComputed(({ messages, history, isStreaming }) => ({
+    historyCount: computed(() => history().length),
+    canSend: computed(() => !isStreaming()),
+    hasMessages: computed(() => messages().length > 0),
+  })),
+
+  // ── 3) Métodos de escritura (mutaciones vía patchState) ──────────────────
+  withMethods((store) => {
+    /** Aplica una transformación inmutable a un mensaje por id. */
+    const patchMessage = (
+      id: string,
+      fn: (m: ChatMessage) => ChatMessage
+    ): void => {
+      patchState(store, {
+        messages: store.messages().map((m) => (m.id === id ? fn(m) : m)),
+      });
+    };
+
+    /** Agrega una tarjeta generativa a un mensaje. */
+    const addWidget = (messageId: string, widget: GenerativeWidget): void =>
+      patchMessage(messageId, (m) => ({ ...m, widgets: [...m.widgets, widget] }));
+
+    /** Agrega el ítem al historial (mini-cards del sidebar), lo más reciente primero. */
+    const pushHistory = (component: string, data: any): void => {
+      const item: HistoryItem = {
+        id: uid(),
+        component,
+        title: historyTitle(component, data),
+        subtitle: historySubtitle(component, data),
+        data,
+      };
+      patchState(store, { history: [item, ...store.history()].slice(0, 20) });
+    };
+
+    return {
+      setStreaming: (v: boolean): void => patchState(store, { isStreaming: v }),
+
+      addUserMessage: (content: string): string => {
+        const msg: ChatMessage = {
+          id: uid(),
+          role: 'user',
+          content,
+          widgets: [],
+          tools: [],
+        };
+        patchState(store, { messages: [...store.messages(), msg] });
+        return msg.id;
+      },
+
+      addAssistantMessage: (): string => {
+        const msg: ChatMessage = {
+          id: uid(),
+          role: 'assistant',
+          content: '',
+          widgets: [],
+          tools: [],
+        };
+        patchState(store, { messages: [...store.messages(), msg] });
+        return msg.id;
+      },
+
+      /**
+       * Aplica un evento SSE al mensaje del asistente indicado.
+       * Es el corazón de la reactividad del streaming: cada evento muta el
+       * estado de forma inmutable y Angular repinta solo lo necesario.
+       */
+      applyEvent: (messageId: string, ev: SseEvent): void => {
+        switch (ev.type) {
+          // Texto incremental → concatenamos al contenido del mensaje
+          case 'token':
+            patchMessage(messageId, (m) => ({
+              ...m,
+              content: m.content + (ev.text ?? ''),
+            }));
+            break;
+
+          // El modelo decidió usar una tool → indicador en estado "running"
+          case 'tool_call':
+            patchMessage(messageId, (m) => ({
+              ...m,
+              tools: [...m.tools, { name: ev.name ?? 'tool', state: 'running' } as ToolStatus],
+            }));
+            break;
+
+          // Tool terminada (ok o error) → actualizamos su estado
+          case 'tool_result':
+            patchMessage(messageId, (m) => ({
+              ...m,
+              tools: m.tools.map((t) =>
+                t.name === ev.name && t.state === 'running'
+                  ? { ...t, state: ev.error ? 'error' : 'done', error: ev.error }
+                  : t
+              ),
+            }));
+            break;
+
+          // El backend nos dice qué componente generativo renderizar.
+          // Lo agregamos al mensaje Y al historial del sidebar.
+          case 'ui':
+            addWidget(messageId, { component: ev.component!, data: ev.data });
+            pushHistory(ev.component!, ev.data);
+            break;
+
+          // Error del stream → lo mostramos como texto del asistente
+          case 'error':
+            patchMessage(messageId, (m) => ({
+              ...m,
+              content: m.content || (ev.message ?? 'Error desconocido'),
+            }));
+            break;
+        }
+      },
+    };
+  }),
+
+  // ── 4) Método reactivo: el ciclo completo del stream SSE ────────────────
+  // rxMethod nos da un método que consume un Observable. Aquí orquestamos:
+  // guardar mensaje → abrir stream → aplicar eventos → finalizar.
+  // `switchMap` cancela el stream anterior si llega otro mensaje.
+  withMethods((store) => {
+    // `inject()` funciona aquí porque los features corren en el constructor de
+    // la store (con inyector actual). Obtenemos el Injector para pasárselo a
+    // rxMethod de forma explícita.
+    const injector = inject(Injector);
+    const sse = inject(SseService);
+
+    return {
+      sendMessage: rxMethod<string>(
+        (text$) =>
+          text$.pipe(
+          // Solo procesamos texto no vacío y si no hay un stream en curso
+          filter((text) => !!text.trim() && !store.isStreaming()),
+          switchMap((text) => {
+            // Snapshot del historial previo para dar contexto al backend
+            const history = store.messages().map((m) => ({
+              role: m.role,
+              content: m.content,
+            }));
+
+            // Creamos los mensajes en el store y marcamos streaming
+            store.addUserMessage(text);
+            const assistantId = store.addAssistantMessage();
+            store.setStreaming(true);
+
+            return sse.chat([...history, { role: 'user', content: text }]).pipe(
+              tap({
+                next: (ev) => store.applyEvent(assistantId, ev),
+                error: () =>
+                  store.applyEvent(assistantId, {
+                    type: 'error',
+                    message: 'No se pudo conectar con el backend.',
+                  }),
+              }),
+              // Swallow del error para no romper el stream de rxMethod
+              catchError(() => of(null)),
+              // Siempre desmarcamos streaming al terminar (done, error o cancel)
+              finalize(() => store.setStreaming(false))
+            );
+          })
+        ),
+        { injector }
+      ),
+    };
+  })
+) {}
+
+// ── Helpers puros (fuera de la store: lógica de presentación) ───────────────
 
 /** Genera un id corto y único para mensajes/ítems. */
 function uid(): string {

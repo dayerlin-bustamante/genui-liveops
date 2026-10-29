@@ -1,21 +1,18 @@
-import { Component, DestroyRef, ElementRef, ViewChild, inject, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Component, ElementRef, ViewChild, inject, signal } from '@angular/core';
 import { ChatStore } from '../../core/chat.store';
-import { SseService } from '../../core/sse.service';
 import { MessageComponent } from './message.component';
 
 /**
  * VISTA PRINCIPAL DEL CHAT
  * ============================================================================
- * Orquesta el flujo:
- *   1. El usuario escribe y envía
- *   2. Se crean 2 mensajes (user + assistant vacío) en el store
- *   3. Se abre el stream SSE (SseService.chat)
- *   4. Cada evento se aplica al mensaje del asistente vía ChatStore.applyEvent
- *   5. Al terminar, se desmarca isStreaming
+ * La lógica del stream vive en el `ChatStore` (NgRx signalStore). Este
+ * componente solo maneja el ESTADO DE VISTA (el texto del input) y delega
+ * el envío al store con `store.sendMessage(text)`.
  *
- * El render es 100% reactivo: al mutar signals del store, Angular repinta solo
- * lo que cambió (token a token sin recalcular toda la lista).
+ * El flujo completo (crear mensajes → abrir SSE → aplicar eventos →
+ * desmarcar streaming) ocurre dentro del store vía `rxMethod`.
+ * El render es reactivo: cada token muta el signal y Angular repinta solo
+ * lo que cambió.
  *
  * Estructura de archivos: .html (plantilla) · .scss (estilos) · .ts (lógica)
  */
@@ -27,11 +24,10 @@ import { MessageComponent } from './message.component';
   styleUrl: './chat.component.scss',
 })
 export class ChatComponent {
+  /** Store con todo el estado y los métodos del chat. */
   readonly store = inject(ChatStore);
-  private readonly sse = inject(SseService);
-  private readonly destroyRef = inject(DestroyRef);
 
-  /** Texto actual del input (signal, sin FormsModule). */
+  /** Texto actual del input (estado de vista, no de app → se queda aquí). */
   readonly draft = signal('');
 
   /** Mensajes de sugerencia para la pantalla vacía. */
@@ -44,40 +40,14 @@ export class ChatComponent {
   @ViewChild('scrollBox') private scrollBox!: ElementRef<HTMLDivElement>;
 
   /**
-   * Envía el mensaje actual (o el texto pasado como atajo de las suggestions).
-   * Gestiona el ciclo completo del stream.
+   * Envía el mensaje actual (o el texto de las suggestions).
+   * Delega todo el ciclo de vida del stream al store.
    */
   send(text?: string): void {
     const content = (text ?? this.draft()).trim();
-    if (!content || this.store.isStreaming()) return;
+    if (!content) return;
 
-    // Snapshot del historial previo para darle contexto al backend
-    const history = this.store.messages().map((m) => ({
-      role: m.role,
-      content: m.content,
-    }));
-
-    // Limpiamos el input y agregamos los mensajes al store
     this.draft.set('');
-    this.store.addUserMessage(content);
-    const assistantId = this.store.addAssistantMessage();
-    this.store.setStreaming(true);
-
-    // Abrimos el stream SSE y aplicamos cada evento al mensaje del asistente
-    this.sse
-      .chat([...history, { role: 'user', content }])
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (ev) => this.store.applyEvent(assistantId, ev),
-        error: (err) => {
-          console.error('SSE error:', err);
-          this.store.applyEvent(assistantId, {
-            type: 'error',
-            message: 'No se pudo conectar con el backend.',
-          });
-          this.store.setStreaming(false);
-        },
-        complete: () => this.store.setStreaming(false),
-      });
+    this.store.sendMessage(content); // rxMethod dentro del store
   }
 }
