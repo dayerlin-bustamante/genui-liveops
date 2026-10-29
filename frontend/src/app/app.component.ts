@@ -1,31 +1,46 @@
-import { Component, signal } from '@angular/core';
-import { SseService } from './core/sse.service';
+import { Component, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { HeaderComponent } from './shell/header/header.component';
+import { SidebarComponent } from './shell/sidebar/sidebar.component';
+import { ChatComponent } from './features/chat/chat.component';
 
+/**
+ * Shell de la aplicación: HEADER + (CHAT | SIDEBAR).
+ * Sin Angular Router (decisión de diseño: es una sola vista).
+ *
+ * Al arrancar consulta /api/health para saber qué proveedor LLM está activo
+ * y mostrarlo en el header.
+ */
 @Component({
   selector: 'app-root',
   standalone: true,
+  imports: [HeaderComponent, SidebarComponent, ChatComponent],
   template: `
-    <h1>🎯 LiveOps Dashboard</h1>
-    <p>Angular Signals + SSE + Tool Calling / Generative UI</p>
+    <app-header [provider]="provider()" />
 
-    <div class="chat">
-      @for (msg of messages(); track $index) {
-        <div class="message" [class.user]="msg.role === 'user'">
-          {{ msg.content }}
-        </div>
-      }
+    <div class="layout">
+      <app-chat />
+      <app-sidebar />
     </div>
   `,
   styles: [
     `
-      .chat { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem; }
-      .message { background: var(--surface); padding: 0.75rem 1rem; border-radius: 8px; }
-      .message.user { background: var(--accent); color: #0f172a; align-self: flex-end; }
+      :host { display: block; min-height: 100vh; }
+      .layout { display: flex; }
     `,
   ],
 })
 export class AppComponent {
-  readonly messages = signal<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  private readonly http = inject(HttpClient);
 
-  constructor(private readonly sse: SseService) {}
+  /** Proveedor LLM activo (lo trae el backend desde .env). */
+  readonly provider = signal('…');
+
+  constructor() {
+    // Pedimos el health para pintar el proveedor en el header
+    this.http.get<{ provider: string }>('/api/health').subscribe({
+      next: (res) => this.provider.set(res.provider ?? 'desconocido'),
+      error: () => this.provider.set('offline'),
+    });
+  }
 }
