@@ -1,7 +1,7 @@
 {
   "name": "genui-liveops-backend",
   "version": "0.1.0",
-  "description": "LiveOps Dashboard backend - SSE streaming + Tool Calling",
+  "description": "LiveOps Dashboard backend - SSE streaming + Tool Calling con capa de abstracción de LLM (Claude/OpenAI/Mock)",
   "type": "module",
   "main": "src/index.js",
   "scripts": {
@@ -12,6 +12,7 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
