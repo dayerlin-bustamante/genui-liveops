@@ -1,0 +1,37 @@
+.crypto {
+  border-top: 3px solid #f7931a;
+
+  .widget-head {
+    justify-content: flex-start;
+    gap: 0.5rem;
+  }
+}
+
+.crypto-price {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-top: 0.35rem;
+}
+
+.crypto-change {
+  margin-left: auto;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+
+  &.up {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+  }
+  &.down {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+  }
+}
+
+.crypto-cap {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}

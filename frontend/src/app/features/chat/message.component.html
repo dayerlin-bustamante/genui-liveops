@@ -1,0 +1,39 @@
+<div class="message" [class.user]="message().role === 'user'">
+  <div class="avatar">{{ message().role === 'user' ? '🧑' : '◉' }}</div>
+
+  <div class="bubble">
+    <!-- Indicadores de tools: "consultando clima…" -->
+    @if (message().tools.length) {
+      <div class="tools">
+        @for (t of message().tools; track $index) {
+          <span class="tool" [class]="'tool ' + t.state">
+            @if (t.state === 'running') {
+              <span class="spinner"></span> consultando {{ t.name }}…
+            } @else if (t.state === 'done') {
+              ✓ {{ t.name }}
+            } @else {
+              ✗ {{ t.name }}: {{ t.error }}
+            }
+          </span>
+        }
+      </div>
+    }
+
+    <!-- Texto del mensaje (streaming) -->
+    @if (message().content) {
+      <p class="text">{{ message().content }}</p>
+    }
+
+    <!-- Tarjetas generativas embebidas -->
+    @if (message().widgets.length) {
+      <div class="widgets">
+        @for (w of message().widgets; track $index) {
+          <ng-container
+            [libGenerativeHost]="w.component"
+            [libGenerativeData]="w.data"
+          />
+        }
+      </div>
+    }
+  </div>
+</div>

@@ -1,0 +1,24 @@
+<div class="widget weather">
+  <div class="widget-head">
+    <span class="widget-icon">🌤️</span>
+    <span class="widget-title">Clima</span>
+  </div>
+
+  <div class="weather-main">
+    <span class="weather-temp">{{ temperature() }}°</span>
+    <span class="weather-city">{{ city() }}, {{ country() }}</span>
+  </div>
+
+  <div class="weather-condition">{{ condition() }}</div>
+
+  <div class="weather-details">
+    <div class="detail">
+      <span class="detail-label">Sensación</span>
+      <span class="detail-value">{{ feelsLike() }}°</span>
+    </div>
+    <div class="detail">
+      <span class="detail-label">Viento</span>
+      <span class="detail-value">{{ windSpeed() }} km/h</span>
+    </div>
+  </div>
+</div>

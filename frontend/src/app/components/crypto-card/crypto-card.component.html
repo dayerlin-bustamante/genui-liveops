@@ -1,0 +1,13 @@
+<div class="widget crypto">
+  <div class="widget-head">
+    <span class="widget-icon">🪙</span>
+    <span class="widget-title">{{ coin() }}</span>
+    <span class="crypto-change" [class.up]="isUp()" [class.down]="!isUp()">
+      {{ changeLabel() }}
+    </span>
+  </div>
+
+  <div class="crypto-price">${{ priceLabel() }}</div>
+
+  <div class="crypto-cap">Market cap: ${{ marketCapLabel() }}</div>
+</div>

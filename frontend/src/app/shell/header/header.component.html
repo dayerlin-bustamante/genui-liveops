@@ -1,0 +1,20 @@
+<header class="header">
+  <div class="brand">
+    <span class="brand-logo">◉</span>
+    <div class="brand-text">
+      <h1>LiveOps Dashboard</h1>
+      <span class="brand-sub">Signals · SSE · Generative UI</span>
+    </div>
+  </div>
+
+  <div class="header-status">
+    @if (store.isStreaming()) {
+      <span class="status status-live">
+        <span class="dot"></span> transmitiendo…
+      </span>
+    } @else {
+      <span class="status status-idle">en espera</span>
+    }
+    <span class="status provider">provider: {{ provider() }}</span>
+  </div>
+</header>

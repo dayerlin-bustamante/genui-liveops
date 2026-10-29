@@ -4,44 +4,14 @@ import { Component, Input, computed, signal } from '@angular/core';
  * Componente generativo: tarjeta de precio de cripto.
  * Se crea cuando el backend emite { component: 'crypto-card' }.
  * Muestra precio, variación 24h (con color semántico) y market cap.
+ *
+ * Estructura de archivos: .html (plantilla) · .scss (estilos) · .ts (lógica)
  */
 @Component({
   selector: 'app-crypto-card',
   standalone: true,
-  template: `
-    <div class="widget crypto">
-      <div class="widget-head">
-        <span class="widget-icon">🪙</span>
-        <span class="widget-title">{{ coin() }}</span>
-        <span class="crypto-change" [class.up]="isUp()" [class.down]="!isUp()">
-          {{ changeLabel() }}
-        </span>
-      </div>
-
-      <div class="crypto-price">\${{ priceLabel() }}</div>
-
-      <div class="crypto-cap">
-        Market cap: \${{ marketCapLabel() }}
-      </div>
-    </div>
-  `,
-  styles: [
-    `
-      .crypto { border-top: 3px solid #f7931a; }
-      .crypto .widget-head { justify-content: flex-start; gap: 0.5rem; }
-      .crypto-price { font-size: 2rem; font-weight: 700; margin-top: 0.35rem; }
-      .crypto-change {
-        margin-left: auto;
-        padding: 0.15rem 0.5rem;
-        border-radius: 999px;
-        font-size: 0.8rem;
-        font-weight: 700;
-      }
-      .crypto-change.up { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
-      .crypto-change.down { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
-      .crypto-cap { margin-top: 0.5rem; font-size: 0.8rem; color: #94a3b8; }
-    `,
-  ],
+  templateUrl: './crypto-card.component.html',
+  styleUrl: './crypto-card.component.scss',
 })
 export class CryptoCardComponent {
   @Input({ required: true }) set data(v: any) {

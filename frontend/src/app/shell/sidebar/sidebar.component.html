@@ -1,0 +1,35 @@
+<aside class="sidebar">
+  <div class="sidebar-head">
+    <h2>Recientes</h2>
+    <span class="sidebar-count">{{ store.historyCount() }}</span>
+  </div>
+
+  @if (historyRes.isLoading()) {
+    <div class="sidebar-empty">Cargando…</div>
+  } @else {
+    @let items = historyRes.value();
+
+    @if (!items || items.length === 0) {
+      <div class="sidebar-empty">
+        Sin resultados aún.<br />
+        <small>Pregunta por clima, crypto o noticias.</small>
+      </div>
+    } @else {
+      <div class="mini-cards">
+        @for (item of items; track item.id) {
+          <div class="mini-card">
+            <div class="mini-card-title">{{ item.title }}</div>
+            <div class="mini-card-sub">{{ item.subtitle }}</div>
+            <!-- Reutilizamos la misma directiva generativa en miniatura -->
+            <div class="mini-card-preview">
+              <ng-container
+                [libGenerativeHost]="item.component"
+                [libGenerativeData]="item.data"
+              />
+            </div>
+          </div>
+        }
+      </div>
+    }
+  }
+</aside>

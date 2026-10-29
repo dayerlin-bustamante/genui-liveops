@@ -10,25 +10,15 @@ import { ChatComponent } from './features/chat/chat.component';
  *
  * Al arrancar consulta /api/health para saber qué proveedor LLM está activo
  * y mostrarlo en el header.
+ *
+ * Estructura de archivos: .html (plantilla) · .scss (estilos) · .ts (lógica)
  */
 @Component({
   selector: 'app-root',
   standalone: true,
   imports: [HeaderComponent, SidebarComponent, ChatComponent],
-  template: `
-    <app-header [provider]="provider()" />
-
-    <div class="layout">
-      <app-chat />
-      <app-sidebar />
-    </div>
-  `,
-  styles: [
-    `
-      :host { display: block; min-height: 100vh; }
-      .layout { display: flex; }
-    `,
-  ],
+  templateUrl: './app.component.html',
+  styleUrl: './app.component.scss',
 })
 export class AppComponent {
   private readonly http = inject(HttpClient);

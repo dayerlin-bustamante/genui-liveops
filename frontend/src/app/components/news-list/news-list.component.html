@@ -1,0 +1,23 @@
+<div class="widget news">
+  <div class="widget-head">
+    <span class="widget-icon">📰</span>
+    <span class="widget-title">Top noticias</span>
+    <span class="news-count">{{ items().length }}</span>
+  </div>
+
+  <ul class="news-list">
+    @for (item of items(); track $index) {
+      <li class="news-item">
+        <span class="news-score" title="puntos">▲ {{ item.score ?? 0 }}</span>
+        @if (item.url) {
+          <a [href]="item.url" target="_blank" rel="noopener">
+            {{ item.title }}
+          </a>
+        } @else {
+          <span class="news-title">{{ item.title }}</span>
+        }
+        <span class="news-by">por {{ item.by ?? 'anon' }}</span>
+      </li>
+    }
+  </ul>
+</div>

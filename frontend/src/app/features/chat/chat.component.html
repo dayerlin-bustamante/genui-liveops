@@ -1,0 +1,45 @@
+<!-- Zona de mensajes (scroll) -->
+<div class="messages" #scrollBox>
+  @if (store.messages().length === 0) {
+    <div class="hero">
+      <div class="hero-icon">◉</div>
+      <h2>¿Qué quieres saber en tiempo real?</h2>
+      <p>Prueba con:</p>
+      <div class="suggestions">
+        @for (s of suggestions; track s) {
+          <button class="chip" (click)="send(s)">{{ s }}</button>
+        }
+      </div>
+    </div>
+  } @else {
+    @for (m of store.messages(); track m.id) {
+      <app-message [message]="m" />
+    }
+  }
+
+  @if (store.isStreaming()) {
+    <div class="typing">
+      <span></span><span></span><span></span>
+    </div>
+  }
+</div>
+
+<!-- Barra de entrada -->
+<form class="composer" (submit)="$event.preventDefault(); send()">
+  <input
+    class="input"
+    [value]="draft()"
+    (input)="draft.set($any($event.target).value)"
+    (keydown.enter)="send()"
+    placeholder="Pregunta por el clima, precio de bitcoin o noticias…"
+    [disabled]="store.isStreaming()"
+    autocomplete="off"
+  />
+  <button
+    class="send"
+    type="submit"
+    [disabled]="store.isStreaming() || !draft().trim()"
+  >
+    @if (store.isStreaming()) { … } @else { Enviar }
+  </button>
+</form>
