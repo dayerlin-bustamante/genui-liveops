@@ -9,13 +9,12 @@ import {
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { catchError, filter, finalize, of, switchMap, tap } from 'rxjs';
 import { SseService } from './sse.service';
-import type {
-  ChatMessage,
-  GenerativeWidget,
-  HistoryItem,
-  SseEvent,
-  ToolStatus,
-} from './chat.types';
+import type { ChatMessage } from './interfaces/chat-message.interface';
+import type { ChatState } from './interfaces/chat-state.interface';
+import type { GenerativeWidget } from './interfaces/generative-widget.interface';
+import type { HistoryItem } from './interfaces/history-item.interface';
+import type { SseEvent } from './interfaces/sse-event.interface';
+import type { ToolStatus } from './interfaces/tool-status.interface';
 
 /**
  * CHAT STORE — NgRx SignalStore (patrón oficial)
@@ -31,13 +30,6 @@ import type {
  * El estado se expone como signals de solo lectura; la ÚNICA forma de mutarlo
  * es vía `patchState` dentro de `withMethods` (cambios inmutables y trazables).
  */
-
-/** Forma del estado del chat. */
-export interface ChatState {
-  messages: ChatMessage[];
-  isStreaming: boolean;
-  history: HistoryItem[];
-}
 
 const initialState: ChatState = {
   messages: [],

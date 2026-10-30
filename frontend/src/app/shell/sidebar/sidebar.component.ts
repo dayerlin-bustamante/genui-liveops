@@ -3,7 +3,7 @@ import { rxResource, toObservable } from '@angular/core/rxjs-interop';
 import { ChatStore } from '../../core/chat.store';
 import { generativeRegistry } from '../../core/generative.registry';
 import { GenerativeHostDirective } from '../../directives/generative-host.directive';
-import type { HistoryItem } from '../../core/chat.types';
+import type { HistoryItem } from '../../core/interfaces/history-item.interface';
 
 /**
  * SIDEBAR (mini-cards de resultados anteriores)

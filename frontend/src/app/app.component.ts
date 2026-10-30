@@ -2,7 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { HeaderComponent } from './shell/header/header.component';
 import { SidebarComponent } from './shell/sidebar/sidebar.component';
-import { ChatComponent } from './features/chat/chat.component';
+import { ChatComponent } from './features/chat/chat/chat.component';
 
 /**
  * Shell de la aplicación: HEADER + (CHAT | SIDEBAR).

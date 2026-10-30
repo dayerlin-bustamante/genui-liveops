@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import type { SseEvent } from './chat.types';
+import type { SseEvent } from './interfaces/sse-event.interface';
 
 /**
  * SERVICIO SSE (Server-Sent Events sobre POST)

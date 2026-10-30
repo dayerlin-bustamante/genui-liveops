@@ -1,6 +1,6 @@
 import { Component, input } from '@angular/core';
-import { GenerativeHostDirective } from '../../directives/generative-host.directive';
-import type { ChatMessage } from '../../core/chat.types';
+import { GenerativeHostDirective } from '../../../directives/generative-host.directive';
+import type { ChatMessage } from '../../../core/interfaces/chat-message.interface';
 
 /**
  * Componente que renderiza UN mensaje del chat.

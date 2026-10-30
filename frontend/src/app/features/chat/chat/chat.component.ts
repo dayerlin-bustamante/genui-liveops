@@ -1,6 +1,6 @@
 import { Component, ElementRef, ViewChild, inject, signal } from '@angular/core';
-import { ChatStore } from '../../core/chat.store';
-import { MessageComponent } from './message.component';
+import { ChatStore } from '../../../core/chat.store';
+import { MessageComponent } from '../message/message.component';
 
 /**
  * VISTA PRINCIPAL DEL CHAT
